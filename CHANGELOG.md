@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.6.3] - 2026-02-06
+
+### Fixed
+
+- **Always on Top**: Fixed pin feature sometimes failing by re-applying on window focus
+- **Delete Button**: Now shows delete button for completed tasks on hover
+- **Notification System**: Fixed notifications not triggering for due tasks
+
+### Added
+
+- **Sound Alerts**: System beep sound for all task reminders
+- **Dialog Alerts**: Popup dialog for urgent "due now" notifications
+- **Notification Check**: Startup check for Windows notification permissions
+- **Reminder Timing**: Notifications at 1 hour before, 5 minutes before, and due time
+
 ## [1.2.6] - 2026-01-25
 
 ### Changed

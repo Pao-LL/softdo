@@ -25,7 +25,7 @@ const STORAGE_KEY = 'softdo-todos'
 const SKIP_VERSION_KEY = 'softdo-skip-version'
 const OPACITY_KEY = 'softdo-opacity'
 const LAST_RUN_VERSION_KEY = 'softdo-version'
-const VERSION = 'v1.6.2'
+const VERSION = 'v1.6.3'
 const LANGUAGE_KEY = 'softdo-language'
 
 function App() {
@@ -254,18 +254,13 @@ function App() {
   }
 
   // Sync with main process for notifications
-  // Using simplified logic now - notifying for all tasks with due time if needed, or disabled.
-  // User asked to "delete bell function". I will stop sending updates to main process for now.
-  // Or send all? For now, I'll comment it out to disable notifications cleanly.
-  /*
   useEffect(() => {
     try {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const { ipcRenderer } = require('electron')
       ipcRenderer.send('update-notification-schedule', todos)
-    } catch {  }
+    } catch { /* Not in Electron */ }
   }, [todos])
-  */
 
   const closeApp = () => window.close()
   const minimizeApp = () => {

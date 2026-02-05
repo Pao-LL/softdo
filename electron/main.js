@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 
 let mainWindow;
 let tray = null;
+let isPinned = false;
 import { readFileSync } from 'fs';
 
 const packageJson = JSON.parse(readFileSync(path.join(__dirname, '../package.json')));
@@ -68,13 +69,25 @@ function createWindow() {
     icon: path.join(__dirname, '../build/icon.png')
   });
 
+  // Re-apply always-on-top when window gains focus (fixes sometimes failing)
+  mainWindow.on('focus', () => {
+    if (isPinned) {
+      mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    }
+  });
+
   // IPC handlers for window controls
   ipcMain.on('minimize-window', () => {
     mainWindow?.minimize();
   });
 
   ipcMain.on('toggle-always-on-top', (event, shouldPin) => {
-    mainWindow?.setAlwaysOnTop(shouldPin);
+    isPinned = shouldPin;
+    mainWindow?.setAlwaysOnTop(shouldPin, shouldPin ? 'screen-saver' : 'normal');
+  });
+
+  ipcMain.handle('get-pin-state', () => {
+    return isPinned;
   });
 
   ipcMain.on('resize-window', (event, { width, height, x, y }) => {
@@ -143,9 +156,10 @@ function createTray() {
     { 
       label: 'Always on Top', 
       type: 'checkbox',
-      checked: false,
+      checked: isPinned,
       click: (menuItem) => {
-        mainWindow?.setAlwaysOnTop(menuItem.checked);
+        isPinned = menuItem.checked;
+        mainWindow?.setAlwaysOnTop(menuItem.checked, menuItem.checked ? 'screen-saver' : 'normal');
         mainWindow?.webContents.send('pin-state-changed', menuItem.checked);
       }
     },
@@ -204,7 +218,11 @@ let notificationTimer = null;
 let scheduledTodos = [];
 
 ipcMain.on('update-notification-schedule', (event, todos) => {
-  scheduledTodos = todos.filter(t => t.dueTime && t.notify);
+  scheduledTodos = todos.filter(t => t.dueTime && !t.completed);
+  console.log(`[Notifications] Updated schedule: ${scheduledTodos.length} tasks with due times`);
+  scheduledTodos.forEach(t => {
+    console.log(`  - "${t.text}" due at ${new Date(t.dueTime).toLocaleString()}`);
+  });
 });
 
 function checkNotifications() {
@@ -244,46 +262,99 @@ function runScheduler() {
     
     let stage = '';
     let message = '';
+    let title = 'SoftDo Reminder';
 
-    if (diffInSeconds <= 0 && diffInSeconds > -60) {
+    // Due now: -60s to +30s window (wider for reliability)
+    if (diffInSeconds <= 30 && diffInSeconds > -60) {
       stage = 'due';
-      message = 'is due now!';
-    } else if (diffInMinutes <= 5 && diffInMinutes > 4) {
+      title = 'Task Due Now!';
+      message = `"${todo.text}" is due now!`;
+    }
+    // 5 minutes before: 4m30s to 5m30s window  
+    else if (diffInMinutes <= 5.5 && diffInMinutes > 4.5) {
       stage = '5m';
-      message = 'is due in 5 minutes.';
-    } else if (diffInMinutes <= 30 && diffInMinutes > 29) {
-      stage = '30m';
-      message = 'is due in 30 minutes.';
-    } else if (diffInMinutes <= 60 && diffInMinutes > 59) {
+      title = '5 Minutes Left';
+      message = `"${todo.text}" is due in 5 minutes.`;
+    }
+    // 1 hour before: 59m to 61m window
+    else if (diffInMinutes <= 61 && diffInMinutes > 59) {
       stage = '1h';
-      message = 'is due in 1 hour.';
-    } else if (diffInMinutes <= 1440 && diffInMinutes > 1439) {
-      stage = '24h';
-      message = 'is due in 24 hours.';
+      title = '1 Hour Left';
+      message = `"${todo.text}" is due in 1 hour.`;
     }
 
     if (stage) {
-      const state = notificationState.get(todo.id) || {};
-      if (state.lastNotifiedStage !== stage) {
-        // Send Notification
-        if (Notification.isSupported()) {
-          new Notification({
-            title: 'SoftDo Reminder',
-            body: `Task "${todo.text}" ${message}`,
-            icon: path.join(__dirname, '../build/icon.ico')
-          }).show();
-        }
+      const state = notificationState.get(todo.id) || { notifiedStages: [] };
+      if (!state.notifiedStages.includes(stage)) {
+        console.log(`[Scheduler] Triggering ${stage} notification for: ${todo.text}`);
+        // Send notification - urgent for 'due' stage
+        showNotification(title, message, stage === 'due');
         
-        notificationState.set(todo.id, { ...state, lastNotifiedStage: stage });
+        state.notifiedStages.push(stage);
+        notificationState.set(todo.id, state);
       }
     }
   });
 }
 
+function showNotification(title, body, urgent = false) {
+  try {
+    console.log(`[Notification] Showing: ${title} - ${body}`);
+    
+    // Play system sound for all notifications
+    if (process.platform === 'win32') {
+      shell.beep();
+    }
+    
+    // For urgent notifications (due now), also show a dialog
+    if (urgent && mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: title,
+        message: body,
+        buttons: ['OK', 'Open SoftDo'],
+        defaultId: 1,
+        noLink: true
+      }).then(result => {
+        if (result.response === 1) {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      });
+    }
+    
+    // Also show system notification
+    if (!Notification.isSupported()) {
+      console.log('[Notification] Not supported on this platform');
+      return;
+    }
+    
+    const notification = new Notification({
+      title: title,
+      body: body,
+      icon: path.join(__dirname, '../build/icon.png'),
+      silent: false,
+      urgency: urgent ? 'critical' : 'normal',
+      timeoutType: urgent ? 'never' : 'default'
+    });
+    
+    notification.on('click', () => {
+      if (mainWindow) {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    });
+    
+    notification.show();
+  } catch (err) {
+    console.error('[Notification] Error:', err);
+  }
+}
+
 // Start scheduler when app launches
 app.whenReady().then(() => {
   createWindow();
-  notificationTimer = setInterval(runScheduler, 10000); // Check every 10s
+  notificationTimer = setInterval(runScheduler, 1000); // Check every 1s for precise notifications
   
   // Auto-check for updates
   setTimeout(() => {
@@ -293,6 +364,47 @@ app.whenReady().then(() => {
        }
     });
   }, 3000); // Check 3s after launch
+
+  // Check notification support and prompt user if needed
+  setTimeout(() => {
+    if (!Notification.isSupported()) {
+      console.log('[Startup] Notifications not supported');
+      dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        title: 'Notifications Not Available',
+        message: 'System notifications are not available on this device. Task reminders will use popup dialogs instead.',
+        buttons: ['OK']
+      });
+    } else {
+      // Send test notification with sound
+      console.log('[Startup] Sending test notification...');
+      shell.beep();
+      
+      const testNotification = new Notification({
+        title: 'SoftDo Reminders Enabled',
+        body: 'You will receive sound alerts and notifications for your tasks!',
+        icon: path.join(__dirname, '../build/icon.png'),
+        silent: false
+      });
+      
+      testNotification.on('failed', () => {
+        // If notification fails, prompt user to check Windows settings
+        dialog.showMessageBox(mainWindow, {
+          type: 'warning',
+          title: 'Enable Notifications',
+          message: 'SoftDo needs notification permission to remind you about tasks.\\n\\nPlease enable notifications for SoftDo in Windows Settings.',
+          buttons: ['Open Settings', 'Later'],
+          defaultId: 0
+        }).then(result => {
+          if (result.response === 0) {
+            shell.openExternal('ms-settings:notifications');
+          }
+        });
+      });
+      
+      testNotification.show();
+    }
+  }, 2000);
 });
 
 app.on('window-all-closed', () => {

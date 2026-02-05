@@ -281,34 +281,36 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
         </div>
 
         {/* Action Buttons (Hover) */}
-        {!todo.completed && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <motion.button
-                whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                onClick={openDueModal}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-neu-muted/30 hover:text-violet-500 hover:bg-violet-50 transition-all cursor-pointer"
-                title={t.changeDue}
-            >
-                <Clock size={14} />
-            </motion.button>
-            <motion.button
-                whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                onClick={() => { setEditText(todo.text); setIsEditing(true); }}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-neu-muted/30 hover:text-violet-500 hover:bg-violet-50 transition-all cursor-pointer"
-                title={t.rename}
-            >
-                <Pencil size={14} />
-            </motion.button>
-            <motion.button
-                whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                onClick={() => onDelete(todo.id)}
-                className="w-8 h-8 rounded-xl flex items-center justify-center text-neu-muted/30 hover:text-red-400 hover:bg-red-50 transition-all cursor-pointer"
-                title={t.delete}
-            >
-                <Trash2 size={14} />
-            </motion.button>
-          </div>
-        )}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          {!todo.completed && (
+            <>
+              <motion.button
+                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                  onClick={openDueModal}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-neu-muted/30 hover:text-violet-500 hover:bg-violet-50 transition-all cursor-pointer"
+                  title={t.changeDue}
+              >
+                  <Clock size={14} />
+              </motion.button>
+              <motion.button
+                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                  onClick={() => { setEditText(todo.text); setIsEditing(true); }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-neu-muted/30 hover:text-violet-500 hover:bg-violet-50 transition-all cursor-pointer"
+                  title={t.rename}
+              >
+                  <Pencil size={14} />
+              </motion.button>
+            </>
+          )}
+          <motion.button
+              whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+              onClick={() => onDelete(todo.id)}
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-neu-muted/30 hover:text-red-400 hover:bg-red-50 transition-all cursor-pointer"
+              title={t.delete}
+          >
+              <Trash2 size={14} />
+          </motion.button>
+        </div>
       </motion.div>
 
       {/* Context Menu */}
