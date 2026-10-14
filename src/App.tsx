@@ -1,3 +1,7 @@
+/**
+ * v1.7.0 (2026-10-15)
+ * 改动：新增今日/长期两栏；旧任务默认归入今日；清空与排序只作用于当前栏。
+ */
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Minus, Pin, CircleCheck, Trash2, Bell, ArrowRight, Droplet, Sparkles, Power, Globe } from 'lucide-react'
@@ -6,12 +10,15 @@ import TodoList from './components/TodoList'
 import { getTranslation } from './i18n'
 import type { Language } from './i18n'
 
+export type TodoBucket = 'today' | 'later'
+
 export interface Todo {
   id: string;
   text: string;
   completed: boolean;
   dueTime?: Date | null;
   details?: string;
+  bucket: TodoBucket;
 }
 
 interface UpdateInfo {
@@ -22,10 +29,11 @@ interface UpdateInfo {
 }
 
 const STORAGE_KEY = 'softdo-todos'
+const BUCKET_KEY = 'softdo-active-bucket'
 const SKIP_VERSION_KEY = 'softdo-skip-version'
 const OPACITY_KEY = 'softdo-opacity'
 const LAST_RUN_VERSION_KEY = 'softdo-version'
-const VERSION = 'v1.6.3'
+const VERSION = 'v1.7.0'
 const LANGUAGE_KEY = 'softdo-language'
 
 function App() {
@@ -34,9 +42,10 @@ function App() {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) {
         const parsed = JSON.parse(saved)
-        return parsed.map((t: Todo) => ({
-          ...t,
-          dueTime: t.dueTime ? new Date(t.dueTime) : null
+        return parsed.map((item: Todo) => ({
+          ...item,
+          dueTime: item.dueTime ? new Date(item.dueTime) : null,
+          bucket: item.bucket === 'later' ? 'later' : 'today'
         }))
       }
     } catch { /* Ignore parse errors */ }
@@ -61,6 +70,12 @@ function App() {
     return (saved === 'zh' || saved === 'en') ? saved : 'en'
   })
   const t = getTranslation(language)
+  const [activeBucket, setActiveBucket] = useState<TodoBucket>(() => {
+    const saved = localStorage.getItem(BUCKET_KEY)
+    return saved === 'later' ? 'later' : 'today'
+  })
+  const visibleTodos = todos.filter(todo => todo.bucket === activeBucket)
+  const remainingCount = visibleTodos.filter(todo => !todo.completed).length
   
   // Resize logic
   const isResizing = useRef(false)
@@ -149,6 +164,10 @@ function App() {
   }, [todos])
 
   useEffect(() => {
+    localStorage.setItem(BUCKET_KEY, activeBucket)
+  }, [activeBucket])
+
+  useEffect(() => {
     localStorage.setItem(OPACITY_KEY, opacity.toString())
   }, [opacity])
 
@@ -217,7 +236,7 @@ function App() {
   }, [])
 
   const addTodo = (text: string, dueTime?: Date | null) => {
-    setTodos(prev => [...prev, { id: crypto.randomUUID(), text, completed: false, dueTime }])
+    setTodos(prev => [...prev, { id: crypto.randomUUID(), text, completed: false, dueTime, bucket: activeBucket }])
   }
 
   const toggleTodo = (id: string) => {
@@ -238,11 +257,16 @@ function App() {
 
   const reorderTodos = (fromIndex: number, toIndex: number) => {
     setTodos(prev => {
-      const newTodos = [...prev]
-      const [removed] = newTodos.splice(fromIndex, 1)
-      newTodos.splice(toIndex, 0, removed)
-      return newTodos
+      const bucketItems = prev.filter(item => item.bucket === activeBucket)
+      const [removed] = bucketItems.splice(fromIndex, 1)
+      bucketItems.splice(toIndex, 0, removed)
+      let i = 0
+      return prev.map(item => item.bucket === activeBucket ? bucketItems[i++] : item)
     })
+  }
+
+  const moveTodo = (id: string, bucket: TodoBucket) => {
+    setTodos(prev => prev.map(item => item.id === id ? { ...item, bucket } : item))
   }
 
   const updateDue = (id: string, dueTime: Date | null) => {
@@ -250,7 +274,7 @@ function App() {
   }
 
   const clearAll = () => {
-    setTodos([])
+    setTodos(prev => prev.filter(item => item.bucket !== activeBucket))
   }
 
   // Sync with main process for notifications
@@ -558,24 +582,42 @@ function App() {
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="space-y-5"
           >
-            {/* Header with Clear All */}
-            <header className="flex items-start justify-between">
-              <div className="space-y-1 min-w-0 flex-1">
-                <h1 className="text-2xl font-bold text-neu-text tracking-tight whitespace-nowrap overflow-hidden text-ellipsis">{t.todayTasks}</h1>
+            {/* Header with bucket switcher */}
+            <header className="flex items-start justify-between gap-3">
+              <div className="space-y-2 min-w-0 flex-1">
+                <div className="app-no-drag inline-flex p-1 rounded-[18px] bg-black/[0.04] border border-black/[0.04]">
+                  {([
+                    { key: 'today' as const, label: t.todayTab },
+                    { key: 'later' as const, label: t.laterTab },
+                  ]).map(tab => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setActiveBucket(tab.key)}
+                      className={`px-3 h-8 rounded-[14px] text-xs font-bold transition-all cursor-pointer ${
+                        activeBucket === tab.key
+                          ? 'bg-white text-violet-600 shadow-sm'
+                          : 'text-neu-muted/70 hover:text-neu-text'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
                 <motion.p 
-                  key={todos.filter(t => !t.completed).length}
+                  key={`${activeBucket}-${remainingCount}`}
                   initial={{ opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-neu-muted text-xs font-medium tracking-wide"
                 >
-                  {todos.filter(todo => !todo.completed).length} {t.remaining}
+                  {remainingCount} {t.remaining}
                 </motion.p>
               </div>
               
               {/* Clear All Button */}
               <div className="h-8 flex items-center">
                  <AnimatePresence>
-                    {todos.length > 0 && (
+                    {visibleTodos.length > 0 && (
                     <motion.button
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -599,7 +641,7 @@ function App() {
               <TodoInput onAdd={addTodo} language={language} />
               
               <AnimatePresence mode="popLayout" initial={false}>
-                {todos.length === 0 ? (
+                {visibleTodos.length === 0 ? (
                   <motion.div
                     key="empty"
                     initial={{ opacity: 0, scale: 0.9, height: 0 }}
@@ -622,7 +664,7 @@ function App() {
                       transition={{ delay: 0.15 }}
                       className="text-neu-muted/60 text-sm font-medium"
                     >
-                      {t.allClear}
+                      {activeBucket === 'today' ? t.allClear : t.laterAllClear}
                     </motion.p>
                   </motion.div>
                 ) : (
@@ -635,13 +677,14 @@ function App() {
                     transition={{ duration: 0.25, ease: "easeOut" }}
                   >
                     <TodoList 
-                      todos={todos} 
+                      todos={visibleTodos} 
                       onToggle={toggleTodo} 
                       onDelete={deleteTodo}
                       onRename={renameTodo}
                       onUpdateDetails={updateDetails}
                       onUpdateDue={updateDue}
                       onReorder={reorderTodos}
+                      onMove={moveTodo}
                       language={language}
                     />
                   </motion.div>

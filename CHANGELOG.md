@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.7.0] - 2026-10-15
+
+### Added
+
+- **Today / Later buckets**: Split tasks into today's work and long-term/later items.
+- **Move between lists**: Hover or right-click a task to send it to the other list.
+
+
 ## [1.6.3] - 2026-02-06
 
 ### Fixed

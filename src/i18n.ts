@@ -1,3 +1,7 @@
+/**
+ * v1.7.0 (2026-10-15)
+ * 改动：补充今日/长期两栏文案。
+ */
 // Language translations
 export type Language = 'en' | 'zh'
 
@@ -5,6 +9,11 @@ export const translations = {
   en: {
     appName: 'SoftDo',
     todayTasks: "Today's Tasks",
+    todayTab: 'Today',
+    laterTab: 'Later',
+    laterAllClear: 'Nothing parked for later.',
+    moveToLater: 'Move to Later',
+    moveToToday: 'Move to Today',
     remaining: 'remaining',
     clearAll: 'Clear All',
     whatNeedsToBeDone: 'What needs to be done?',
@@ -29,7 +38,7 @@ export const translations = {
     update: 'Update',
     skip: 'Skip',
     welcome: 'Welcome to SoftDo',
-    welcomeFeatures: 'Enjoy the new Resize & Opacity features.',
+    welcomeFeatures: 'Today for now, Later for long-term work.',
     time: 'Time',
     today: 'Today',
     tomorrow: 'Tomorrow',
@@ -41,6 +50,11 @@ export const translations = {
   zh: {
     appName: 'SoftDo',
     todayTasks: '今日任务',
+    todayTab: '今日',
+    laterTab: '长期',
+    laterAllClear: '还没有长期事项。',
+    moveToLater: '移到长期',
+    moveToToday: '移到今日',
     remaining: '项待办',
     clearAll: '清空',
     whatNeedsToBeDone: '添加新任务...',
@@ -65,7 +79,7 @@ export const translations = {
     update: '更新',
     skip: '跳过',
     welcome: '欢迎使用 SoftDo',
-    welcomeFeatures: '体验全新的调整大小和透明度功能。',
+    welcomeFeatures: '今日处理眼前的事，长期放下以后要做的事。',
     time: '时间',
     today: '今天',
     tomorrow: '明天',

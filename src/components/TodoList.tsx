@@ -1,6 +1,10 @@
+/**
+ * v1.7.0 (2026-10-15)
+ * 改动：透传跨栏移动。
+ */
 import { useState, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import type { Todo } from '../App'
+import type { Todo, TodoBucket } from '../App'
 import TodoItem from './TodoItem'
 import type { Language } from '../i18n'
 
@@ -12,6 +16,7 @@ interface TodoListProps {
   onUpdateDetails: (id: string, details: string) => void;
   onUpdateDue: (id: string, due: Date | null) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  onMove: (id: string, bucket: TodoBucket) => void;
   language: Language;
 }
 
@@ -22,7 +27,8 @@ export default function TodoList({
   onRename, 
   onUpdateDetails, 
   onUpdateDue,
-  onReorder, 
+  onReorder,
+  onMove,
   language 
 }: TodoListProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null)
@@ -114,6 +120,7 @@ export default function TodoList({
               onRename={onRename}
               onUpdateDetails={onUpdateDetails}
               onUpdateDue={onUpdateDue}
+              onMove={onMove}
               language={language}
             />
           </motion.div>

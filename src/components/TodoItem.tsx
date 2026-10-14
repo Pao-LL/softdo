@@ -1,8 +1,12 @@
-import { Check, Trash2, Clock, Pencil, FileText, X, GripVertical, ChevronLeft, ChevronRight } from 'lucide-react'
+/**
+ * v1.7.0 (2026-10-15)
+ * 改动：任务可在今日/长期之间移动。
+ */
+import { Check, Trash2, Clock, Pencil, FileText, X, GripVertical, ChevronLeft, ChevronRight, CalendarDays, Layers } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import clsx from 'clsx'
-import type { Todo } from '../App'
+import type { Todo, TodoBucket } from '../App'
 import { getTranslation } from '../i18n'
 import type { Language } from '../i18n'
 
@@ -13,6 +17,7 @@ interface TodoItemProps {
   onRename: (id: string, text: string) => void;
   onUpdateDetails: (id: string, details: string) => void;
   onUpdateDue: (id: string, due: Date | null) => void;
+  onMove: (id: string, bucket: TodoBucket) => void;
   language: Language;
 }
 
@@ -46,7 +51,7 @@ function formatTimeRemaining(dueTime: Date, t: any): TimeInfo {
   return { text: `${days}d ${hours % 24}h`, urgent: false, overdue: false }
 }
 
-export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateDetails, onUpdateDue, language }: TodoItemProps) {
+export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateDetails, onUpdateDue, onMove, language }: TodoItemProps) {
   const t = getTranslation(language)
   const [, setTick] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
@@ -300,6 +305,14 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
               >
                   <Pencil size={14} />
               </motion.button>
+              <motion.button
+                  whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                  onClick={() => onMove(todo.id, todo.bucket === 'later' ? 'today' : 'later')}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center text-neu-muted/30 hover:text-violet-500 hover:bg-violet-50 transition-all cursor-pointer"
+                  title={todo.bucket === 'later' ? t.moveToToday : t.moveToLater}
+              >
+                  {todo.bucket === 'later' ? <CalendarDays size={14} /> : <Layers size={14} />}
+              </motion.button>
             </>
           )}
           <motion.button
@@ -332,6 +345,11 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
             <MenuButton icon={<Clock size={13} />} text={t.changeDue} onClick={openDueModal} />
             <MenuButton icon={<FileText size={13} />} text={t.editDetails} onClick={() => { setShowContextMenu(false); setDetailsText(todo.details || ''); setShowDetailsModal(true); }} />
             <MenuButton icon={<Pencil size={13} />} text={t.rename} onClick={() => { setShowContextMenu(false); setEditText(todo.text); setIsEditing(true); }} />
+            <MenuButton
+              icon={todo.bucket === 'later' ? <CalendarDays size={13} /> : <Layers size={13} />}
+              text={todo.bucket === 'later' ? t.moveToToday : t.moveToLater}
+              onClick={() => { setShowContextMenu(false); onMove(todo.id, todo.bucket === 'later' ? 'today' : 'later'); }}
+            />
             
             <div className="h-px bg-gray-100/50 my-1 mx-2" />
             <MenuButton icon={<Trash2 size={13} />} text={t.delete} color="text-red-500" onClick={() => { setShowContextMenu(false); onDelete(todo.id); }} />
