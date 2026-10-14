@@ -1,3 +1,7 @@
+/**
+ * v1.0.1-fork (2026-10-15)
+ * 改动：更新检查仓库改为 Pao-Lu-Lou/softdo；Windows AppUserModelId 改为 com.paolulou.softdo，避免与原版 SoftDo 冲突。
+ */
 import { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, Notification } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -13,12 +17,12 @@ import { readFileSync } from 'fs';
 
 const packageJson = JSON.parse(readFileSync(path.join(__dirname, '../package.json')));
 const CURRENT_VERSION = packageJson.version;
-const GITHUB_REPO = 'xxomega2077xx/softdo';
+const GITHUB_REPO = 'Pao-Lu-Lou/softdo';
 const UPDATE_CHECK_KEY = 'softdo-skip-update';
 const SKIP_VERSION_KEY = 'softdo-skip-version';
 
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.softdo.app');
+  app.setAppUserModelId('com.paolulou.softdo');
 }
 
 // Single instance lock - prevent multiple instances
