@@ -1,6 +1,6 @@
 /**
  * v1.7.0 (2026-10-15)
- * 改动：任务可在今日/长期之间移动。
+ * 改动：任务可在今日/长期之间移动。说明在行内展开编辑。
  */
 import { Check, Trash2, Clock, Pencil, FileText, X, GripVertical, ChevronLeft, ChevronRight, CalendarDays, Layers } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
@@ -19,6 +19,9 @@ interface TodoItemProps {
   onUpdateDue: (id: string, due: Date | null) => void;
   onMove: (id: string, bucket: TodoBucket) => void;
   language: Language;
+  detailsOpen: boolean;
+  onOpenDetails: () => void;
+  onCloseDetails: () => void;
 }
 
 interface TimeInfo {
@@ -51,15 +54,22 @@ function formatTimeRemaining(dueTime: Date, t: any): TimeInfo {
   return { text: `${days}d ${hours % 24}h`, urgent: false, overdue: false }
 }
 
-export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateDetails, onUpdateDue, onMove, language }: TodoItemProps) {
+export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateDetails, onUpdateDue, onMove, language, detailsOpen, onOpenDetails, onCloseDetails }: TodoItemProps) {
   const t = getTranslation(language)
   const [, setTick] = useState(0)
   const [isEditing, setIsEditing] = useState(false)
   const [editText, setEditText] = useState(todo.text)
   const [showContextMenu, setShowContextMenu] = useState(false)
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
-  const [showDetailsModal, setShowDetailsModal] = useState(false)
   const [detailsText, setDetailsText] = useState(todo.details || '')
+  const detailsTextRef = useRef(todo.details || '')
+  const savedDetailsRef = useRef(todo.details || '')
+  const onUpdateDetailsRef = useRef(onUpdateDetails)
+  savedDetailsRef.current = todo.details || ''
+  const openRef = useRef(false)
+  const skipSaveRef = useRef(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+  onUpdateDetailsRef.current = onUpdateDetails
   
   // Due Picker State
   const [showDueModal, setShowDueModal] = useState(false)
@@ -131,10 +141,43 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
     setShowContextMenu(true)
   }
 
-  const handleSaveDetails = () => {
-    onUpdateDetails(todo.id, detailsText)
-    setShowDetailsModal(false)
+  const setDraft = (value: string) => {
+    detailsTextRef.current = value
+    setDetailsText(value)
   }
+
+  useEffect(() => {
+    if (detailsOpen && !openRef.current) {
+      setDraft(savedDetailsRef.current)
+    }
+    if (!detailsOpen && openRef.current) {
+      openRef.current = false
+      if (!skipSaveRef.current) {
+        onUpdateDetailsRef.current(todo.id, detailsTextRef.current.trim())
+      }
+      skipSaveRef.current = false
+    }
+    if (detailsOpen) openRef.current = true
+  }, [detailsOpen, todo.id])
+
+  useEffect(() => {
+    return () => {
+      if (openRef.current && !skipSaveRef.current) {
+        onUpdateDetailsRef.current(todo.id, detailsTextRef.current.trim())
+      }
+    }
+  }, [todo.id])
+
+  useEffect(() => {
+    if (!detailsOpen) return
+    const handlePointerDown = (event: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        onCloseDetails()
+      }
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [detailsOpen, onCloseDetails])
 
   const timeInfo = todo.dueTime ? formatTimeRemaining(new Date(todo.dueTime), t) : null
 
@@ -197,13 +240,15 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
   return (
     <>
       <motion.div
+        ref={cardRef}
         layout
         onContextMenu={handleContextMenu}
         className={clsx(
-          'group flex items-center gap-2 p-3.5 bg-white/60 hover:bg-white/80 backdrop-blur-sm border border-white/50 rounded-[24px] shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden cursor-default',
+          'group flex flex-col gap-2 p-3.5 bg-white/60 hover:bg-white/80 backdrop-blur-sm border border-white/50 rounded-[24px] shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden cursor-default',
           todo.completed && 'opacity-60 bg-white/40'
         )}
       >
+        <div className="flex items-center gap-2">
         {/* Drag Handle */}
         <div className="w-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-grab active:cursor-grabbing text-neu-muted/30 hover:text-violet-400 -ml-1">
           <GripVertical size={14} />
@@ -254,10 +299,20 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
               <div className="relative group/text">
                 <motion.span 
                   animate={{ color: todo.completed ? 'rgba(99, 110, 114, 0.4)' : 'rgba(45, 52, 54, 1)' }}
-                  className="block text-sm font-medium select-none truncate"
+                  className={`block text-sm font-medium select-none truncate ${!todo.details?.trim() && !detailsOpen ? "group-hover:pr-5" : ""}`}
                 >
                   {todo.text}
                 </motion.span>
+                {!todo.details?.trim() && !detailsOpen && (
+                  <button
+                    type="button"
+                    onClick={onOpenDetails}
+                    title={t.editDetails}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 w-5 h-5 rounded-md flex items-center justify-center text-neu-muted/30 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto hover:text-violet-500 cursor-pointer"
+                  >
+                    <FileText size={12} />
+                  </button>
+                )}
                 <motion.div
                   initial={{ scaleX: 0 }}
                   animate={{ scaleX: todo.completed ? 1 : 0 }}
@@ -324,6 +379,53 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
               <Trash2 size={14} />
           </motion.button>
         </div>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {detailsOpen ? (
+            <motion.div
+              key="editor"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden pl-14"
+            >
+              <textarea
+                autoFocus
+                value={detailsText}
+                onChange={(e) => setDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault()
+                    onCloseDetails()
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    skipSaveRef.current = true
+                    setDraft(todo.details || '')
+                    onCloseDetails()
+                  }
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+                placeholder={t.addDetails}
+                className="w-full h-24 px-3 py-2 text-xs leading-5 bg-white/80 border border-violet-100 rounded-2xl resize-none outline-none text-neu-text placeholder-neu-muted/40 focus:border-violet-200 focus:bg-white"
+              />
+            </motion.div>
+          ) : todo.details?.trim() ? (
+            <motion.button
+              key="preview"
+              type="button"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              onClick={onOpenDetails}
+              title={t.editDetails}
+              className="pl-14 pr-1 flex items-center gap-1.5 w-full text-left cursor-pointer"
+            >
+              <FileText size={11} className="text-violet-400 flex-shrink-0" />
+              <span className="text-[11px] leading-4 text-neu-muted/70 truncate">{todo.details.replace(/\s+/g, ' ')}</span>
+            </motion.button>
+          ) : null}
+        </AnimatePresence>
       </motion.div>
 
       {/* Context Menu */}
@@ -343,7 +445,7 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
             <div className="h-px bg-gray-100/50 mx-2 mb-1" />
             
             <MenuButton icon={<Clock size={13} />} text={t.changeDue} onClick={openDueModal} />
-            <MenuButton icon={<FileText size={13} />} text={t.editDetails} onClick={() => { setShowContextMenu(false); setDetailsText(todo.details || ''); setShowDetailsModal(true); }} />
+            <MenuButton icon={<FileText size={13} />} text={t.editDetails} onClick={() => { setShowContextMenu(false); onOpenDetails(); }} />
             <MenuButton icon={<Pencil size={13} />} text={t.rename} onClick={() => { setShowContextMenu(false); setEditText(todo.text); setIsEditing(true); }} />
             <MenuButton
               icon={todo.bucket === 'later' ? <CalendarDays size={13} /> : <Layers size={13} />}
@@ -406,35 +508,6 @@ export default function TodoItem({ todo, onToggle, onDelete, onRename, onUpdateD
         )}
       </AnimatePresence>
 
-      {/* Details Modal */}
-      <AnimatePresence>
-        {showDetailsModal && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[110] flex items-center justify-center p-4"
-            onClick={() => setShowDetailsModal(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-sm bg-white rounded-3xl shadow-xl border border-white/50 overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-                <h3 className="text-sm font-bold text-neu-text">{t.editDetails}</h3>
-                <button onClick={() => setShowDetailsModal(false)} className="p-1 hover:bg-gray-100 rounded-full"><X size={16} /></button>
-              </div>
-              <div className="p-5 space-y-4">
-                <div><p className="text-[10px] text-neu-muted mb-1 font-bold uppercase">{t.task}</p><p className="text-sm font-semibold">{todo.text}</p></div>
-                <textarea autoFocus value={detailsText} onChange={(e) => setDetailsText(e.target.value)} placeholder={t.addDetails} className="w-full h-32 p-4 text-sm bg-gray-50 border-none rounded-2xl resize-none outline-none focus:bg-white focus:ring-2 focus:ring-violet-100 transition-all" />
-                <div className="flex gap-2">
-                  <button onClick={() => setShowDetailsModal(false)} className="flex-1 py-3 text-sm font-bold text-neu-muted bg-gray-100 rounded-2xl hover:bg-gray-200 transition-colors">{t.cancel}</button>
-                  <button onClick={handleSaveDetails} className="flex-1 py-3 text-sm font-bold text-white bg-violet-500 rounded-2xl hover:bg-violet-600 shadow-lg shadow-violet-500/20 transition-colors">{t.save}</button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </>
   )
 }

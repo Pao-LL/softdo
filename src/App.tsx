@@ -1,6 +1,6 @@
 /**
  * v1.7.0 (2026-10-15)
- * 改动：新增今日/长期两栏；旧任务默认归入今日；清空与排序只作用于当前栏。
+ * 改动：新增今日/长期两栏；旧任务默认归入今日；清空与排序只作用于当前栏。任务说明可在新建和列表里直接写。
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -235,8 +235,16 @@ function App() {
     checkUpdate();
   }, [])
 
-  const addTodo = (text: string, dueTime?: Date | null) => {
-    setTodos(prev => [...prev, { id: crypto.randomUUID(), text, completed: false, dueTime, bucket: activeBucket }])
+  const addTodo = (text: string, dueTime?: Date | null, details?: string) => {
+    const note = details?.trim()
+    setTodos(prev => [...prev, {
+      id: crypto.randomUUID(),
+      text: text.trim(),
+      completed: false,
+      dueTime,
+      details: note || undefined,
+      bucket: activeBucket
+    }])
   }
 
   const toggleTodo = (id: string) => {
@@ -252,7 +260,12 @@ function App() {
   }
 
   const updateDetails = (id: string, details: string) => {
-    setTodos(prev => prev.map(t => t.id === id ? { ...t, details } : t))
+    const note = details.trim()
+    setTodos(prev => prev.map(t => {
+      if (t.id !== id) return t
+      if ((t.details || '') === note) return t
+      return { ...t, details: note || undefined }
+    }))
   }
 
   const reorderTodos = (fromIndex: number, toIndex: number) => {

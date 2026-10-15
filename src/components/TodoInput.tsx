@@ -1,17 +1,19 @@
 import { useState, useRef } from 'react'
-import { Plus, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Clock, ChevronLeft, ChevronRight, FileText } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getTranslation } from '../i18n'
 import type { Language } from '../i18n'
 
 interface TodoInputProps {
-  onAdd: (text: string, dueTime?: Date | null) => void;
+  onAdd: (text: string, dueTime?: Date | null, details?: string) => void;
   language: Language;
 }
 
 export default function TodoInput({ onAdd, language }: TodoInputProps) {
   const t = getTranslation(language)
   const [text, setText] = useState('')
+  const [details, setDetails] = useState('')
+  const [showDetails, setShowDetails] = useState(false)
   const [showDuePicker, setShowDuePicker] = useState(false)
   const [selectedDate, setSelectedDate] = useState('')
   const [hour, setHour] = useState('12')
@@ -28,8 +30,10 @@ export default function TodoInput({ onAdd, language }: TodoInputProps) {
         const m = Math.min(59, Math.max(0, parseInt(minute) || 0))
         due = new Date(`${selectedDate}T${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`)
       }
-      onAdd(text, due)
+      onAdd(text, due, details)
       setText('')
+      setDetails('')
+      setShowDetails(false)
       setSelectedDate('')
       setHour('12')
       setMinute('00')
@@ -181,15 +185,30 @@ export default function TodoInput({ onAdd, language }: TodoInputProps) {
 
   return (
     <div className="space-y-3">
-      <form onSubmit={handleSubmit} className="flex gap-3">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="flex gap-3">
         <div className="flex-1 flex gap-2">
-          <input
-            type="text"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={t.whatNeedsToBeDone}
-            className="w-full bg-white/70 backdrop-blur-xl rounded-[18px] px-5 py-3 outline-none text-neu-text placeholder-neu-muted/35 border border-white/60 transition-all duration-200 focus:bg-white/95 focus:border-violet-200 text-sm font-medium shadow-sm"
-          />
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={t.whatNeedsToBeDone}
+              className="w-full bg-white/70 backdrop-blur-xl rounded-[18px] pl-5 pr-11 py-3 outline-none text-neu-text placeholder-neu-muted/35 border border-white/60 transition-all duration-200 focus:bg-white/95 focus:border-violet-200 text-sm font-medium shadow-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setShowDetails(open => !open)}
+              title={t.editDetails}
+              className={`absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
+                showDetails || details.trim()
+                  ? 'text-violet-600 bg-violet-50'
+                  : 'text-neu-muted/40 hover:text-violet-500 hover:bg-violet-50'
+              }`}
+            >
+              <FileText size={16} />
+            </button>
+          </div>
           
           <button
             type="button"
@@ -213,6 +232,31 @@ export default function TodoInput({ onAdd, language }: TodoInputProps) {
         >
           <Plus size={20} strokeWidth={2.5} />
         </button>
+        </div>
+        <AnimatePresence>
+          {showDetails && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <textarea
+                autoFocus
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault()
+                    e.currentTarget.form?.requestSubmit()
+                  }
+                }}
+                placeholder={t.addDetails}
+                className="w-full h-24 px-4 py-3 text-sm leading-5 bg-white/70 border border-white/60 rounded-[18px] resize-none outline-none text-neu-text placeholder-neu-muted/35 focus:bg-white/95 focus:border-violet-200"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </form>
       
       {/* Due Picker */}
