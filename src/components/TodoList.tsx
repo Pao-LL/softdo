@@ -105,7 +105,7 @@ export default function TodoList({
                   initial={{ opacity: 0, scaleX: 0 }}
                   animate={{ opacity: 1, scaleX: 1 }}
                   exit={{ opacity: 0, scaleX: 0 }}
-                  className="absolute -top-1.5 left-4 right-4 h-0.5 bg-violet-500 rounded-full origin-left z-10"
+                  className="absolute -top-1.5 left-4 right-4 h-0.5 bg-pine rounded-full origin-left z-10"
                 />
               )}
             </AnimatePresence>
@@ -117,7 +117,7 @@ export default function TodoList({
                   initial={{ opacity: 0, scaleX: 0 }}
                   animate={{ opacity: 1, scaleX: 1 }}
                   exit={{ opacity: 0, scaleX: 0 }}
-                  className="absolute -bottom-1.5 left-4 right-4 h-0.5 bg-violet-500 rounded-full origin-left z-10"
+                  className="absolute -bottom-1.5 left-4 right-4 h-0.5 bg-pine rounded-full origin-left z-10"
                 />
               )}
             </AnimatePresence>
